@@ -28,6 +28,11 @@ class TransformCalibrator:
     self.__transform = None
     self.__testPoint = None
     self.__convertedTestPoint = None
+    self.__dragStartX = None
+    self.__dragStartY = None
+    self.__isDraggingMouse = False
+    self.__draggedBox = None
+    self.__blockBoxes = []
 
   def run(self, mapPoints, pointNumbersForTransform, pointNumbersForDistortionCorrection):
     self.__mapPoints = mapPoints
@@ -41,7 +46,7 @@ class TransformCalibrator:
       self.__processArrowKeys(key)
       self.__processCommandKeys(key)
     cv2.destroyWindow(self.__imageName)
-    return self.__transform
+    return self.__transform, self.__blockBoxes
 
   def __updateView(self):
     self.__background = self.__backgroundTemplate.copy()
@@ -49,14 +54,18 @@ class TransformCalibrator:
     self.__mapReference = self.__mapReferenceTemplate.copy()
     self.__drawPointsOnImage(self.__mapReference, self.__mapPoints[:self.__currentPoint + 1])
     self.__drawTestPointOnImages()
+    if self.__draggedBox is not None:
+      cv2.rectangle(self.__background, self.__draggedBox["topLeftPoint"], self.__draggedBox["bottomRightPoint"], (0,0,0), -1)
+    for box in self.__blockBoxes:
+      cv2.rectangle(self.__background, box["topLeftPoint"], box["bottomRightPoint"], (0,0,0), -1)
     fullImage = self.__differentSizedVerticalConcat([self.__background, self.__mapReference])
     cv2.imshow(self.__imageName, fullImage)
 
   def __drawPointsOnImage(self, image, points):
     for point in points:
-      cv2.circle(image, (point["x"], point["y"]), 3, (0, 255, 0), -1)
+      cv2.circle(image, (point["x"], point["y"]), 5, (0, 255, 0), -1)
       if "label" in point and point["label"] != None:
-        cv2.putText(image, point["label"], (point["x"], point["y"]), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 255, 0))
+        cv2.putText(image, point["label"], (point["x"], point["y"]), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0))
 
   def __drawTestPointOnImages(self):
     if self.__testPoint is not None and self.__convertedTestPoint is not None:
@@ -82,7 +91,13 @@ class TransformCalibrator:
     return cv2.vconcat(fullWidthImages)
   
   def __addPoint(self, event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+      if self.__allPointsAdded:
+        self.__dragStartX = x
+        self.__dragStartY = y
+        self.__isDraggingMouse = True
     if event == cv2.EVENT_LBUTTONUP:
+      self.__isDraggingMouse = False
       if not self.__allPointsAdded:
         self.__backgroundPoints.append({"x": x, "y": y, "label": self.__currentLabel})
         self.__currentPoint = self.__currentPoint + 1
@@ -91,9 +106,22 @@ class TransformCalibrator:
         else:
           self.__allPointsAdded = True
       if self.__transform is not None:
-        self.__testPoint = [x, y]
-        self.__convertedTestPoint = self.__transform.roundedShiftPerspectiveForPoint(self.__testPoint)
+        if x == self.__dragStartX and y == self.__dragStartY:
+          self.__testPoint = [x, y]
+          self.__convertedTestPoint = self.__transform.roundedShiftPerspectiveForPoint(self.__testPoint)
+        else:
+          if self.__draggedBox is not None:
+            self.__blockBoxes.append(self.__draggedBox)
+          self.__draggedBox = None
       self.__updateView()
+    if event == cv2.EVENT_MOUSEMOVE:
+      if self.__isDraggingMouse:
+        minX = x if x < self.__dragStartX else self.__dragStartX
+        minY = y if y < self.__dragStartY else self.__dragStartY
+        maxX = x if x > self.__dragStartX else self.__dragStartX
+        maxY = y if y > self.__dragStartY else self.__dragStartY
+        self.__draggedBox = { "topLeftPoint": (minX, minY), "bottomRightPoint": (maxX, maxY)}
+        self.__updateView()
 
   def __processArrowKeys(self, key):
     if key == self.__upArrowCode:
