@@ -33,6 +33,8 @@ class ImageCoordinateTransformEvaluator:
     self.__detector = TensorflowImageDetector()
     self.__detections = self.__detector.loadDetectionsFromZip(zipArchive, imagePath.replace(".jpg", ".json"))
     imageWithDetections = self.__detector.drawDetectionsOnImage(testedImage, self.__detections, ["robot"], blockBoxes, drawMidpoint = True, yCenterFromTopLeft=0.67)
+    self.__relevantDetections = [detection for detection in self.__detections if detection["label"] == self.__desiredDetectionLabel]
+    self.__relevantDetections = self.__detector.filterOutDetectionsInBlockedBoxes(self.__relevantDetections, blockBoxes)
     rescaledTestedImage = self.__rescaleImage(imageWithDetections, self.__frameScale)
     cv2.imshow(self.__frameName, rescaledTestedImage)
     self.__updateMap()
@@ -81,11 +83,10 @@ class ImageCoordinateTransformEvaluator:
     elif key == self.__enterCode:
       if not self.__isDisplayingDetectedPoints:
         self.__isDisplayingDetectedPoints = True
-        for detection in self.__detections:
-          if detection["label"] == self.__desiredDetectionLabel:
-            robotBase = self.__detector.getMidpoint(detection, yCenterFromTopLeft=0.67)
-            transformedDetection = self.__transform.roundedShiftPerspectiveForPoint(robotBase)
-            self.__detectedPoints.append(transformedDetection)
+        for detection in self.__relevantDetections:
+          robotBase = self.__detector.getMidpoint(detection, yCenterFromTopLeft=0.67)
+          transformedDetection = self.__transform.roundedShiftPerspectiveForPoint(robotBase)
+          self.__detectedPoints.append(transformedDetection)
         self.__updateMap()
       else:
         if len(self.__userPoints) != len(self.__detectedPoints):
