@@ -46,36 +46,27 @@ class TensorflowImageDetector:
 
   def drawDetectionsOnImage(self, image, detections, allowedLabels = None, blockBoxes = [], xCenterFromTopLeft = 0.5, yCenterFromTopLeft = 0.5, drawMidpoint = False):
     editedImage = image.copy()
+    filteredDetections = self.filterOutDetectionsInBlockedBoxes(detections, blockBoxes)
     if isinstance(allowedLabels, list):
-      for detection in detections:
+      for detection in filteredDetections:
         if detection['label'] in allowedLabels:
-          midpoint = self.__getMidpoint(detection, xCenterFromTopLeft, yCenterFromTopLeft)
-          isBlocked = False
-          for blockBox in blockBoxes:
-            if self.__isPointInBox(midpoint, blockBox):
-              isBlocked = True
-          if not isBlocked:
-            self.__drawSingleDetection(editedImage, detection)
-          if drawMidpoint:
-            cv2.circle(editedImage, midpoint, 2, (0,255,0), -1)
-    else:
-      for detection in detections:
-        midpoint = self.__getMidpoint(detection, xCenterFromTopLeft, yCenterFromTopLeft)
-        isBlocked = False
-        for blockBox in blockBoxes:
-          if self.__isPointInBox(midpoint, blockBox):
-            isBlocked = True
-        if not isBlocked:
           self.__drawSingleDetection(editedImage, detection)
+          if drawMidpoint:
+            midpoint = self.getMidpoint(detection, xCenterFromTopLeft, yCenterFromTopLeft)
+            cv2.circle(editedImage, midpoint, 5, (0,255,0), -1)
+    else:
+      for detection in filteredDetections:
+        self.__drawSingleDetection(editedImage, detection)
         if drawMidpoint:
-          cv2.circle(editedImage, midpoint, 2, (0,255,0), -1)
+          midpoint = self.getMidpoint(detection, xCenterFromTopLeft, yCenterFromTopLeft)
+          cv2.circle(editedImage, midpoint, 5, (0,255,0), -1)
     return editedImage
 
   def __drawSingleDetection(self, image, detection):
-    cv2.rectangle(image, detection["topLeftPoint"], detection["bottomRightPoint"], (0,255,0), 2)
-    cv2.putText(image, f"{detection['label']}: {int(detection['score']*100)} %", detection["topLeftPoint"], cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+    cv2.rectangle(image, tuple(detection["topLeftPoint"]), tuple(detection["bottomRightPoint"]), (0,255,0), 2)
+    cv2.putText(image, f"{detection['label']}: {int(detection['score']*100)} %", tuple(detection["topLeftPoint"]), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
 
-  def __getMidpoint(self, detection, xCenterFromTopLeft = 0.5, yCenterFromTopLeft = 0.5):
+  def getMidpoint(self, detection, xCenterFromTopLeft = 0.5, yCenterFromTopLeft = 0.5):
     width = detection["bottomRightPoint"][0] - detection["topLeftPoint"][0]
     midX = round(detection["topLeftPoint"][0] + width * xCenterFromTopLeft)
     height = detection["bottomRightPoint"][1] - detection["topLeftPoint"][1]
@@ -90,6 +81,18 @@ class TensorflowImageDetector:
     if point[0] > minX and point[0] < maxX and point[1] > minY and point[1] < maxY:
       return True
     return False
+  
+  def filterOutDetectionsInBlockedBoxes(self, detections, blockedBoxes):
+    filteredDetections = []
+    for detection in detections:
+      midpoint = self.getMidpoint(detection)
+      isBlocked = False
+      for blockedBox in blockedBoxes:
+        if self.__isPointInBox(midpoint, blockedBox):
+          isBlocked = True
+      if not isBlocked:
+        filteredDetections.append(detection)
+    return filteredDetections
 
   # def saveDetections(self, detections, filePath):
   #   convertedDetections = [{**detection, 'score': float(detection["score"])} for detection in detections]

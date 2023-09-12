@@ -11,6 +11,14 @@ class DistortionAdjustedCoordinateTransform:
     self.__findLensCorrectionCoefficient(distortionLinePoints, maxIterations = 100)
     self.__findUndistortedPerspectiveShift(seenReferencePoints, targetReferencePoints)
 
+  def getConfig(self):
+    return {
+      "distortionLinePoints": self.__distortionLinePoints,
+      "distortionCenter": self.__distortionCenter,
+      "seenReferencePoints": self.__seenReferencePoints,
+      "targetReferencePoints": self.__targetReferencePoints
+    }
+
   def shiftPerspectiveForPoint(self, point: List[float]) -> List[float]:
     undistortedPoint = self.correctDistortionForPoint(point)
     return self.__transformPointPerspectiveOnly(undistortedPoint)

@@ -4,7 +4,7 @@ import sys
 import cv2
 from typing import List
 from TransformCalibrator import TransformCalibrator
-from TensorflowImageDetector import TensorflowImageDetector
+from ImageCoordinateTransformEvaluator import ImageCoordinateTransformEvaluator
 
 def rescaleImage(image, scalePercentage):
   width = int(image.shape[1] * scalePercentage / 100)
@@ -42,7 +42,7 @@ rescaledReferenceMap = rescaleImage(referenceMap, 50)
 
 image = readImageFromZip(archive, testFolder + "background.jpg")
 rescaled = rescaleImage(image, 50)
-calibrator = TransformCalibrator(rescaledReferenceMap, image)
+calibrator = TransformCalibrator(rescaledReferenceMap, image, scale=0.5)
 mapPoint1 = {"x": 40, "y": 25, "label": "1"}
 mapPoint2 = {"x": 805, "y": 25, "label": "2"}
 mapPoint3 = {"x": 210, "y": 178, "label": "3"}
@@ -52,12 +52,14 @@ mapPoints = [mapPoint1, mapPoint2, mapPoint3, mapPoint4, mapPoint5]
 transform, blockBoxes = calibrator.run(mapPoints,["1", "2", "3", "4"], ["1", "2", "5"])
 
 imagePath = relevantFiles[0]
-testedImage = readImageFromZip(archive,imagePath)
-detector = TensorflowImageDetector()
-detections = detector.loadDetectionsFromZip(archive, imagePath.replace(".jpg", ".json"))
-imageWithDetections = detector.drawDetectionsOnImage(testedImage, detections, ["robot"], blockBoxes, drawMidpoint = True, yCenterFromTopLeft=0.67)
-rescaledTestedImage = rescaleImage(imageWithDetections, 50)
-cv2.imshow("test", rescaledTestedImage)
+# testedImage = readImageFromZip(archive,imagePath)
+# detector = TensorflowImageDetector()
+# detections = detector.loadDetectionsFromZip(archive, imagePath.replace(".jpg", ".json"))
+# imageWithDetections = detector.drawDetectionsOnImage(testedImage, detections, ["robot"], blockBoxes, drawMidpoint = True, yCenterFromTopLeft=0.67)
+# rescaledTestedImage = rescaleImage(imageWithDetections, 50)
+# cv2.imshow("test", rescaledTestedImage)
+imageTransformEvaluator = ImageCoordinateTransformEvaluator(frameScale = 0.5)
+imageTransformEvaluator.evaluateImage(rescaledReferenceMap, archive, imagePath, transform, blockBoxes)
 cv2.waitKey(0)
 
 cv2.destroyAllWindows()

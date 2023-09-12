@@ -5,7 +5,7 @@ from DistortionAdjustedCoordinateTransform import DistortionAdjustedCoordinateTr
 from sys import platform
 
 class TransformCalibrator:
-  def __init__(self, mapReference, background, imageName = "Calibration"):
+  def __init__(self, mapReference, background, imageName = "Calibration", scale = 1):
     self.__mapReferenceTemplate = mapReference
     self.__backgroundTemplate = background
     self.__mapReference = mapReference
@@ -33,6 +33,7 @@ class TransformCalibrator:
     self.__isDraggingMouse = False
     self.__draggedBox = None
     self.__blockBoxes = []
+    self.__scale = scale
 
   def run(self, mapPoints, pointNumbersForTransform, pointNumbersForDistortionCorrection):
     self.__mapPoints = mapPoints
@@ -59,7 +60,8 @@ class TransformCalibrator:
     for box in self.__blockBoxes:
       cv2.rectangle(self.__background, box["topLeftPoint"], box["bottomRightPoint"], (0,0,0), -1)
     fullImage = self.__differentSizedVerticalConcat([self.__background, self.__mapReference])
-    cv2.imshow(self.__imageName, fullImage)
+    rescaledImage = self.__rescaleImage(fullImage, self.__scale)
+    cv2.imshow(self.__imageName, rescaledImage)
 
   def __drawPointsOnImage(self, image, points):
     for point in points:
@@ -91,6 +93,8 @@ class TransformCalibrator:
     return cv2.vconcat(fullWidthImages)
   
   def __addPoint(self, event, x, y, flags, param):
+    x = round(x/self.__scale)
+    y = round(y/self.__scale)
     if event == cv2.EVENT_LBUTTONDOWN:
       if self.__allPointsAdded:
         self.__dragStartX = x
@@ -166,3 +170,10 @@ class TransformCalibrator:
           self.__transform = DistortionAdjustedCoordinateTransform(distortionCorrectionPoints, backgroundCenter, imageTransformPoints, mapTransformPoints)
         else:
           self.__calibrationCompleted = True
+
+  def __rescaleImage(self, image, scaleFactor):
+    width = int(image.shape[1] * scaleFactor)
+    height = int(image.shape[0] * scaleFactor)
+    dim = (width, height)
+    resized = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+    return resized
