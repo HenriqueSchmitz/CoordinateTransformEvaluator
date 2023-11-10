@@ -3,6 +3,7 @@ from typing import List
 import numpy as np
 from DistortionAdjustedCoordinateTransform import DistortionAdjustedCoordinateTransform
 from sys import platform
+import json
 
 class TransformCalibrator:
   def __init__(self, mapReference, background, imageName = "Calibration", scale = 1):
@@ -177,3 +178,14 @@ class TransformCalibrator:
     dim = (width, height)
     resized = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
     return resized
+  
+  def saveCalibration(self, zipArchive, folderPath, transform, blockedBoxes):
+    transformParameters = transform.getConfig()
+    calibration = {}
+    calibration["transformParameters"] = transformParameters
+    calibration["ignoredAreas"] = blockedBoxes
+    calibrationJson = json.dumps(calibration)
+    filePath = folderPath + "calibration.json"
+    with zipArchive.open(filePath, 'w') as file:
+      file.write(calibrationJson.encode())
+      print("Saved calibration file: " + filePath)
